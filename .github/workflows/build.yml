@@ -36,8 +36,8 @@ jobs:
       # ── DAEMON BUILD ──
       - name: Build daemon
         run: |
-          CC=$HOME/ndk/android-ndk-r25c/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android35-clang++
-          $CC -std=c++17 -O2 -fPIE -pie -static-libstdc++ \
+          NDK_BIN="$HOME/ndk/android-ndk-r25c/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          "$NDK_BIN/clang++" --target=aarch64-linux-android33 -std=c++17 -O2 -fPIE -pie -static-libstdc++ \
               daemon/main.cpp -o ffd
 
       # ── GRADLE WRAPPER ──
