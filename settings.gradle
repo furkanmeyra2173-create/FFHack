@@ -1,0 +1,2 @@
+rootProject.name = "FFHack"
+include ':app'
