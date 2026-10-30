@@ -22,43 +22,60 @@
 #define ESP_PATH "/data/local/tmp/.hesp"
 
 // ════════════════════════════════════════════
-//  FEATURE FLAGS — 22 özellik
+//  37 FEATURE FLAG
 // ════════════════════════════════════════════
 enum Feat : int {
-    // Savaş
-    F_NORECOIL   = 0,
-    F_SILENTAIM  = 1,
-    F_AIMBOT     = 2,
-    F_RAPIDFIRE  = 3,
-    F_NOSWAY     = 4,
-    F_BULLETSPD  = 5,
-    // Hareket
-    F_FASTRELOAD = 6,
-    F_SPEEDHACK  = 7,
-    F_FLYHACK    = 8,
-    F_ANTIAIM    = 9,
-    // Görüş
-    F_GHOSTWALL  = 10,
-    F_ESP        = 11,
-    F_ITEMESP    = 12,
-    F_VEHICLESP  = 13,
-    F_LOOTFILTER = 14,
-    F_CAMLOCK    = 15,
-    F_WIDEFOV    = 16,
-    // Ekran (overlay tarafı halleder, daemon sadece yazar)
-    F_CROSSHAIR  = 17,
-    F_RADAR      = 18,
-    F_NIGHTMODE  = 19,
-    F_NOGRASS    = 20,
-    F_BRIGHTMODE = 21,
-    F_COUNT      = 22
+    // SAVAŞ
+    F_NORECOIL    = 0,
+    F_SILENTAIM   = 1,
+    F_AIMBOT      = 2,
+    F_RAPIDFIRE   = 3,
+    F_NOSWAY      = 4,
+    F_BULLETSPD   = 5,
+    F_NOSPREAD    = 6,
+    F_INFINITEAMMO= 7,
+    F_NOZOOM      = 8,
+    // SAVUNMA
+    F_FASTRELOAD  = 9,
+    F_MAXHP       = 10,
+    F_MAXARMOR    = 11,
+    F_AUTOHEAL    = 12,
+    F_NOKNOCKBACK = 13,
+    F_NOFALLDAM   = 14,
+    // HAREKET
+    F_SPEED1      = 15,
+    F_SPEED2      = 16,
+    F_SPEED3      = 17,
+    F_FLYHACK     = 18,
+    F_PARASPEED   = 19,
+    F_ANTIAIM     = 20,
+    // ARAÇ
+    F_VEHSPEED    = 21,
+    F_VEHICLESP   = 22,
+    // GÖRÜŞ
+    F_GHOSTWALL   = 23,
+    F_ESP         = 24,
+    F_ITEMESP     = 25,
+    F_LOOTFILTER  = 26,
+    F_CAMLOCK     = 27,
+    F_WIDEFOV     = 28,
+    F_TEAMHP      = 29,
+    F_DROPZONE    = 30,
+    F_SAFEZONE    = 31,
+    // EKRAN
+    F_CROSSHAIR   = 32,
+    F_RADAR       = 33,
+    F_NIGHTMODE   = 34,
+    F_NOGRASS     = 35,
+    F_BRIGHTMODE  = 36,
+    F_COUNT       = 37
 };
 static uint8_t g_feat[F_COUNT]{};
 
-void LoadConfig() {
-    FILE* f = fopen(CFG_PATH, "rb");
-    if (!f) return;
-    fread(g_feat, 1, F_COUNT, f);
+void LoadConfig(){
+    FILE* f=fopen(CFG_PATH,"rb");
+    if(!f)return;
+    fread(g_feat,1,F_COUNT,f);
     fclose(f);
 }
 
@@ -83,8 +100,8 @@ static inline long sc6(long nr,long a,long b,long c,long d,long e,long f_){
 #define SYS_pwrite64 68
 #define SYS_pvm_r    270
 
-static int   g_mfd = -1;
-static pid_t g_pid = -1;
+static int   g_mfd=-1;
+static pid_t g_pid=-1;
 
 template<typename T> T ReadMem(uintptr_t a){
     T v{}; sc6(SYS_pread64,g_mfd,(long)&v,sizeof(T),(long)a,0,0); return v;
@@ -111,7 +128,7 @@ pid_t FindPid(const char* pkg){
         fgets(buf,256,f); fclose(f);
         if(strstr(buf,pkg)){closedir(d);return p;}
     }
-    closedir(d); return -1;
+    closedir(d);return -1;
 }
 uintptr_t FindBase(pid_t pid,const char* mod){
     char path[64]; snprintf(path,64,"/proc/%d/maps",pid);
@@ -120,10 +137,10 @@ uintptr_t FindBase(pid_t pid,const char* mod){
     while(fgets(line,512,f)){
         if(strstr(line,mod)&&strstr(line,"r-xp")){
             uintptr_t b=0; sscanf(line,"%lx-",&b);
-            fclose(f); return b;
+            fclose(f);return b;
         }
     }
-    fclose(f); return 0;
+    fclose(f);return 0;
 }
 bool OpenMem(pid_t pid){
     char p[64]; snprintf(p,64,"/proc/%d/mem",pid);
@@ -157,90 +174,97 @@ bool W2S(const Mat4& vp,Vec3 w,Vec2& s,float sw,float sh){
 // ════════════════════════════════════════════
 //  OFFSETS
 // ════════════════════════════════════════════
-namespace Off {
-    // Core
-    constexpr uintptr_t GameFacade  = 0xA72E4E0;
-    constexpr uintptr_t Facade_P2   = 0xB8;
-    constexpr uintptr_t Match       = 0x90;
-    constexpr uintptr_t Match_Dict  = 0xC0;
-    constexpr uintptr_t Match_Local = 0xD8;
-    constexpr uintptr_t Dict_Ents   = 0x18;
-    constexpr uintptr_t Dict_Cnt    = 0x20;
-    constexpr uintptr_t Dict_Str    = 0x18;
-    constexpr uintptr_t Dict_Val    = 0x10;
-    // Item / Vehicle managers
-    constexpr uintptr_t ItemManager    = 0xE8;
-    constexpr uintptr_t ItemList       = 0x18;
-    constexpr uintptr_t ItemCount      = 0x20;
-    constexpr uintptr_t ItemPos        = 0x90;
-    constexpr uintptr_t ItemType       = 0x48;
-    constexpr uintptr_t VehicleManager = 0xF0;
-    constexpr uintptr_t VehicleList    = 0x18;
-    constexpr uintptr_t VehicleCount   = 0x20;
-    constexpr uintptr_t VehiclePos     = 0x90;
-    constexpr uintptr_t VehicleHP      = 0x74;
+namespace Off{
+    constexpr uintptr_t GameFacade   =0xA72E4E0;
+    constexpr uintptr_t Facade_P2    =0xB8;
+    constexpr uintptr_t Match        =0x90;
+    constexpr uintptr_t Match_Dict   =0xC0;
+    constexpr uintptr_t Match_Local  =0xD8;
+    constexpr uintptr_t Match_SafeZone=0x1C0;
+    constexpr uintptr_t SZ_Timer     =0x48;
+    constexpr uintptr_t SZ_CenterX   =0x30;
+    constexpr uintptr_t SZ_CenterZ   =0x38;
+    constexpr uintptr_t SZ_Radius    =0x40;
+    constexpr uintptr_t Dict_Ents    =0x18;
+    constexpr uintptr_t Dict_Cnt     =0x20;
+    constexpr uintptr_t Dict_Str     =0x18;
+    constexpr uintptr_t Dict_Val     =0x10;
+    constexpr uintptr_t ItemManager  =0xE8;
+    constexpr uintptr_t ItemList     =0x18;
+    constexpr uintptr_t ItemCount    =0x20;
+    constexpr uintptr_t ItemPos      =0x90;
+    constexpr uintptr_t ItemType     =0x48;
+    constexpr uintptr_t VehicleManager=0xF0;
+    constexpr uintptr_t VehicleList  =0x18;
+    constexpr uintptr_t VehicleCount =0x20;
+    constexpr uintptr_t VehiclePos   =0x90;
+    constexpr uintptr_t VehicleHP    =0x74;
+    constexpr uintptr_t VehicleSpeed =0x2DC;
+    constexpr uintptr_t TeamManager  =0xD0;
+    constexpr uintptr_t TeamList     =0x18;
+    constexpr uintptr_t TeamCount    =0x20;
     // Player
-    constexpr uintptr_t P_Dead       = 0x7C;
-    constexpr uintptr_t P_Bot        = 0x4A0;
-    constexpr uintptr_t P_HP1        = 0x70;
-    constexpr uintptr_t P_HP2        = 0x10;
-    constexpr uintptr_t P_HP3        = 0x20;
-    constexpr uintptr_t P_HPVal      = 0x18;
-    constexpr uintptr_t P_Armor      = 0x74;
-    constexpr uintptr_t P_Firing     = 0x848;
-    constexpr uintptr_t P_AimInfo    = 0xE50;
-    constexpr uintptr_t Aim_Dir      = 0x40;
-    constexpr uintptr_t Aim_Pos      = 0x4C;
-    constexpr uintptr_t P_Rotation   = 0x614;
-    constexpr uintptr_t P_MoveSpeed  = 0x2DC;  // CharacterController speed
-    constexpr uintptr_t P_GravityY   = 0x2E0;  // gravity component
-    constexpr uintptr_t P_PosY       = 0x88;   // transform Y (fly hack)
-    constexpr uintptr_t P_Name       = 0x490;
-    // Weapon
-    constexpr uintptr_t P_Weapon     = 0x600;
-    constexpr uintptr_t W_Data       = 0x80;
-    constexpr uintptr_t W_Recoil     = 0x18;
-    constexpr uintptr_t W_FastRld    = 0xD9;
-    constexpr uintptr_t W_FireRate   = 0x1C;   // fire rate multiplier
-    constexpr uintptr_t W_Sway       = 0x90;   // sway component ptr
-    constexpr uintptr_t W_SwayAmt    = 0x24;   // sway amount float
-    constexpr uintptr_t W_BulletSpd  = 0x30;   // bullet speed float
-    // Bones
-    constexpr uintptr_t B_Head       = 0x6A0;
-    constexpr uintptr_t B_Hip        = 0x6A8;
-    constexpr uintptr_t B_Breast     = 0x6B0;
-    constexpr uintptr_t B_LSho       = 0x708;
-    constexpr uintptr_t B_RSho       = 0x710;
-    constexpr uintptr_t B_LHand      = 0x720;
-    constexpr uintptr_t B_RHand      = 0x718;
-    constexpr uintptr_t B_LAnk       = 0x6D8;
-    constexpr uintptr_t B_RAnk       = 0x6E0;
-    // Transform
-    constexpr uintptr_t TF_Int       = 0x10;
-    constexpr uintptr_t TF_Idx       = 0x40;
-    constexpr uintptr_t TF_Mat       = 0x18;
-    constexpr uintptr_t TF_IdxL      = 0x20;
-    // Camera
-    constexpr uintptr_t P_Camera     = 0x690;
-    constexpr uintptr_t Cam_Follow   = 0x28;
-    constexpr uintptr_t Cam_Int      = 0x10;
-    constexpr uintptr_t Cam_Matrix   = 0x100;
-    constexpr uintptr_t Cam_FOV      = 0x78;   // Camera.fieldOfView
-    // Avatar / wallhack
-    constexpr uintptr_t P_Avatar     = 0x770;
-    constexpr uintptr_t Av_Uma       = 0x138;
-    constexpr uintptr_t Uma_Vis      = 0x101;
-    // Environment
-    constexpr uintptr_t GrassManager = 0x1A0;  // GrassRenderer ptr
-    constexpr uintptr_t Grass_Enable = 0x18;
-    constexpr uintptr_t AmbientLight = 0x1B0;  // RenderSettings ambient
-    constexpr uintptr_t AmbientR     = 0x10;
-    constexpr uintptr_t AmbientG     = 0x14;
-    constexpr uintptr_t AmbientB     = 0x18;
+    constexpr uintptr_t P_Dead       =0x7C;
+    constexpr uintptr_t P_Bot        =0x4A0;
+    constexpr uintptr_t P_HP1        =0x70;
+    constexpr uintptr_t P_HP2        =0x10;
+    constexpr uintptr_t P_HP3        =0x20;
+    constexpr uintptr_t P_HPVal      =0x18;
+    constexpr uintptr_t P_Armor      =0x74;
+    constexpr uintptr_t P_FallDmg    =0x2E8;
+    constexpr uintptr_t P_Knockback  =0x2EC;
+    constexpr uintptr_t P_Firing     =0x848;
+    constexpr uintptr_t P_AimInfo    =0xE50;
+    constexpr uintptr_t Aim_Dir      =0x40;
+    constexpr uintptr_t Aim_Pos      =0x4C;
+    constexpr uintptr_t P_Rotation   =0x614;
+    constexpr uintptr_t P_MoveSpeed  =0x2DC;
+    constexpr uintptr_t P_GravityY   =0x2E0;
+    constexpr uintptr_t P_ParaSpeed  =0x3A0;
+    constexpr uintptr_t P_ZoomPenalty=0x3B0;
+    constexpr uintptr_t P_Name       =0x490;
+    constexpr uintptr_t P_Weapon     =0x600;
+    constexpr uintptr_t W_Data       =0x80;
+    constexpr uintptr_t W_Recoil     =0x18;
+    constexpr uintptr_t W_FastRld    =0xD9;
+    constexpr uintptr_t W_FireRate   =0x1C;
+    constexpr uintptr_t W_Sway       =0x90;
+    constexpr uintptr_t W_SwayAmt    =0x24;
+    constexpr uintptr_t W_BulletSpd  =0x30;
+    constexpr uintptr_t W_Spread     =0x20;
+    constexpr uintptr_t W_Ammo       =0xA0;
+    constexpr uintptr_t W_MaxAmmo    =0xA4;
+    constexpr uintptr_t B_Head       =0x6A0;
+    constexpr uintptr_t B_Breast     =0x6B0;
+    constexpr uintptr_t B_Hip        =0x6A8;
+    constexpr uintptr_t B_LSho       =0x708;
+    constexpr uintptr_t B_RSho       =0x710;
+    constexpr uintptr_t B_LHand      =0x720;
+    constexpr uintptr_t B_RHand      =0x718;
+    constexpr uintptr_t B_LAnk       =0x6D8;
+    constexpr uintptr_t B_RAnk       =0x6E0;
+    constexpr uintptr_t TF_Int       =0x10;
+    constexpr uintptr_t TF_Idx       =0x40;
+    constexpr uintptr_t TF_Mat       =0x18;
+    constexpr uintptr_t TF_IdxL      =0x20;
+    constexpr uintptr_t P_Camera     =0x690;
+    constexpr uintptr_t Cam_Follow   =0x28;
+    constexpr uintptr_t Cam_Int      =0x10;
+    constexpr uintptr_t Cam_Matrix   =0x100;
+    constexpr uintptr_t Cam_FOV      =0x78;
+    constexpr uintptr_t P_Avatar     =0x770;
+    constexpr uintptr_t Av_Uma       =0x138;
+    constexpr uintptr_t Uma_Vis      =0x101;
+    constexpr uintptr_t GrassManager =0x1A0;
+    constexpr uintptr_t Grass_Enable =0x18;
+    constexpr uintptr_t AmbientLight =0x1B0;
+    constexpr uintptr_t AmbientR     =0x10;
+    constexpr uintptr_t AmbientG     =0x14;
+    constexpr uintptr_t AmbientB     =0x18;
 }
 
 // ════════════════════════════════════════════
-//  BONE / STRING HELPERS
+//  HELPERS
 // ════════════════════════════════════════════
 Vec3 BonePos(uintptr_t tf){
     if(!tf)return{};
@@ -251,11 +275,8 @@ Vec3 BonePos(uintptr_t tf){
     if(!ml||!il)return{};
     uint32_t idx=ReadMem<uint32_t>(il+0x4);
     uintptr_t e=ml+(uintptr_t)idx*0x30;
-    return{ReadMem<float>(e+0x20),
-           ReadMem<float>(e+0x24),
-           ReadMem<float>(e+0x28)};
+    return{ReadMem<float>(e+0x20),ReadMem<float>(e+0x24),ReadMem<float>(e+0x28)};
 }
-
 std::string ReadName(uintptr_t ptr){
     if(!ptr)return"";
     int32_t len=ReadMem<int32_t>(ptr+0x10);
@@ -272,28 +293,34 @@ std::string ReadName(uintptr_t ptr){
 //  ESP STRUCTS
 // ════════════════════════════════════════════
 struct BP{float sx,sy;};
-
-struct EspEntry {
+struct EspEntry{
     BP head,breast,hip,l_sho,r_sho,l_hand,r_hand,l_ank,r_ank;
     float box_top,box_bot,box_cx,box_w;
     float hp,armor,dist;
     char  name[24];
     uint8_t is_bot,pad[3];
-};  // 128 bytes
+}; // 128 bytes
 
-struct ItemEntry {
-    float sx,sy;       // screen pos
-    float dist;
-    uint8_t type;      // 0=gun 1=ammo 2=heal 3=armor 4=other
+struct ItemEntry{
+    float sx,sy,dist;
+    uint8_t type;
     char name[20];
     uint8_t pad[3];
-};  // 32 bytes
+}; // 32 bytes
 
-struct VehicleEntry {
-    float sx,sy;
-    float dist,hp;
+struct VehEntry{
+    float sx,sy,dist,hp;
     uint8_t pad[4];
-};  // 20 bytes
+}; // 20 bytes
+
+struct TeamEntry{
+    float hp,armor;
+    char name[20];
+}; // 28 bytes
+
+struct SafeZoneInfo{
+    float cx,cz,radius,timer;
+}; // 16 bytes
 
 // ════════════════════════════════════════════
 //  JITTER
@@ -301,6 +328,250 @@ struct VehicleEntry {
 static std::mt19937 rng(42);
 void JSlp(int b,int v){
     std::uniform_int_distribution<int> d(0,v);
+    std::this_thread::sleep_for(std::chrono::milliseconds(b+d(rng)));
+}
+
+// ════════════════════════════════════════════
+//  FEATURES
+// ════════════════════════════════════════════
+void NoRecoil(uintptr_t lo){
+    uintptr_t wp=Ptr(lo+Off::P_Weapon),wd=Ptr(wp+Off::W_Data);
+    if(wd) WriteMem<float>(wd+Off::W_Recoil,0.f);
+}
+void RapidFire(uintptr_t lo){
+    uintptr_t wp=Ptr(lo+Off::P_Weapon),wd=Ptr(wp+Off::W_Data);
+    if(wd) WriteMem<float>(wd+Off::W_FireRate,0.01f);
+}
+void NoSway(uintptr_t lo){
+    uintptr_t wp=Ptr(lo+Off::P_Weapon),wd=Ptr(wp+Off::W_Data);
+    if(!wd)return;
+    uintptr_t sw=Ptr(wd+Off::W_Sway);
+    if(sw) WriteMem<float>(sw+Off::W_SwayAmt,0.f);
+}
+void BulletSpeed(uintptr_t lo){
+    uintptr_t wp=Ptr(lo+Off::P_Weapon),wd=Ptr(wp+Off::W_Data);
+    if(wd) WriteMem<float>(wd+Off::W_BulletSpd,9999.f);
+}
+void NoSpread(uintptr_t lo){
+    uintptr_t wp=Ptr(lo+Off::P_Weapon),wd=Ptr(wp+Off::W_Data);
+    if(wd) WriteMem<float>(wd+Off::W_Spread,0.f);
+}
+void InfiniteAmmo(uintptr_t lo){
+    uintptr_t wp=Ptr(lo+Off::P_Weapon),wd=Ptr(wp+Off::W_Data);
+    if(!wd)return;
+    int32_t mx=ReadMem<int32_t>(wd+Off::W_MaxAmmo);
+    if(mx>0) WriteMem<int32_t>(wd+Off::W_Ammo,mx);
+}
+void NoZoomPenalty(uintptr_t lo){
+    WriteMem<float>(lo+Off::P_ZoomPenalty,1.f);
+}
+void FastReload(uintptr_t lo){
+    uintptr_t wp=Ptr(lo+Off::P_Weapon),wd=Ptr(wp+Off::W_Data);
+    if(wd) WriteMem<uint8_t>(wd+Off::W_FastRld,1);
+}
+void MaxHP(uintptr_t lo){
+    uintptr_t h3=Ptr(Ptr(Ptr(lo+Off::P_HP1)+Off::P_HP2)+Off::P_HP3);
+    if(h3) WriteMem<float>(h3+Off::P_HPVal,200.f);
+}
+void MaxArmor(uintptr_t lo){
+    WriteMem<float>(lo+Off::P_Armor,200.f);
+}
+void AutoHeal(uintptr_t lo){
+    uintptr_t h3=Ptr(Ptr(Ptr(lo+Off::P_HP1)+Off::P_HP2)+Off::P_HP3);
+    if(!h3)return;
+    float hp=ReadMem<float>(h3+Off::P_HPVal);
+    if(hp<150.f) WriteMem<float>(h3+Off::P_HPVal,200.f);
+}
+void NoKnockback(uintptr_t lo){
+    WriteMem<float>(lo+Off::P_Knockback,0.f);
+}
+void NoFallDamage(uintptr_t lo){
+    WriteMem<float>(lo+Off::P_FallDmg,0.f);
+}
+void SpeedHack(uintptr_t lo,float mul){
+    float cur=ReadMem<float>(lo+Off::P_MoveSpeed);
+    if(cur>0.f&&cur<30.f) WriteMem<float>(lo+Off::P_MoveSpeed,cur*mul);
+}
+void FlyHack(uintptr_t lo){
+    WriteMem<float>(lo+Off::P_GravityY,0.f);
+}
+void ParaSpeed(uintptr_t lo){
+    WriteMem<float>(lo+Off::P_ParaSpeed,999.f);
+}
+void AntiAIM(uintptr_t lo){
+    std::uniform_real_distribution<float> d(-180.f,180.f);
+    WriteMem<float>(lo+Off::P_Rotation+4,d(rng));
+}
+void VehSpeed(uintptr_t match){
+    uintptr_t vm=Ptr(match+Off::VehicleManager);
+    uintptr_t vl=vm?Ptr(vm+Off::VehicleList):0;
+    int32_t vc=vm?ReadMem<int32_t>(vm+Off::VehicleCount):0;
+    for(int i=0;i<vc&&vc<50;i++){
+        uintptr_t veh=Ptr(vl+0x10+(uintptr_t)i*0x8);
+        if(veh){
+            float spd=ReadMem<float>(veh+Off::VehicleSpeed);
+            if(spd>0.f&&spd<100.f) WriteMem<float>(veh+Off::VehicleSpeed,spd*2.f);
+        }
+    }
+}
+void GhostWall(uintptr_t ep){
+    uintptr_t av=Ptr(ep+Off::P_Avatar),um=Ptr(av+Off::Av_Uma);
+    if(um) WriteMem<uint8_t>(um+Off::Uma_Vis,1);
+}
+void WideFOV(uintptr_t lo){
+    uintptr_t cam=Ptr(lo+Off::P_Camera),cfo=Ptr(cam+Off::Cam_Follow);
+    if(cfo) WriteMem<float>(cfo+Off::Cam_FOV,100.f);
+}
+void NoGrass(uintptr_t facade){
+    uintptr_t gm=Ptr(facade+Off::GrassManager);
+    if(gm) WriteMem<uint8_t>(gm+Off::Grass_Enable,0);
+}
+void BrightMode(uintptr_t facade){
+    uintptr_t al=Ptr(facade+Off::AmbientLight); if(!al)return;
+    WriteMem<float>(al+Off::AmbientR,2.f);
+    WriteMem<float>(al+Off::AmbientG,2.f);
+    WriteMem<float>(al+Off::AmbientB,2.f);
+}
+void NightMode(uintptr_t facade){
+    uintptr_t al=Ptr(facade+Off::AmbientLight); if(!al)return;
+    WriteMem<float>(al+Off::AmbientR,0.05f);
+    WriteMem<float>(al+Off::AmbientG,0.08f);
+    WriteMem<float>(al+Off::AmbientB,0.15f);
+}
+void CamLock(uintptr_t lo,Vec3 lh,Vec3 th){
+    Vec3 d=th-lh;
+    float hz=sqrtf(d.x*d.x+d.z*d.z);
+    float yaw=atan2f(d.x,d.z)*(180.f/3.14159265f);
+    float pitch=-atan2f(d.y,hz)*(180.f/3.14159265f);
+    pitch=fmaxf(-60.f,fminf(60.f,pitch));
+    WriteMem<float>(lo+Off::P_Rotation,pitch);
+    WriteMem<float>(lo+Off::P_Rotation+4,yaw);
+}
+void Aimbot(uintptr_t lo,Vec3 lh,Vec3 th){
+    CamLock(lo,lh,th);
+    WriteMem<uint32_t>(lo+Off::P_Firing,1);
+}
+
+// ════════════════════════════════════════════
+//  MAIN
+// ════════════════════════════════════════════
+int main(int argc,char** argv){
+    const char* fake="kworker/u8:1";
+    if(argc>0){memset(argv[0],0,strlen(argv[0]));strncpy(argv[0],fake,strlen(argv[0]));}
+    prctl(PR_SET_NAME,fake,0,0,0);
+
+    constexpr float SW=1080.f,SH=2400.f;
+
+    while(g_pid<=0){g_pid=FindPid("com.dts.freefireon");std::this_thread::sleep_for(std::chrono::seconds(2));}
+    while(!OpenMem(g_pid))std::this_thread::sleep_for(std::chrono::seconds(1));
+    uintptr_t base=0;
+    while(!base){base=FindBase(g_pid,"libil2cpp.so");std::this_thread::sleep_for(std::chrono::seconds(1));}
+
+    const uintptr_t fa=base+Off::GameFacade;
+
+    while(true){
+        LoadConfig();
+
+        uintptr_t facade=Ptr(fa); if(!facade){JSlp(300,100);continue;}
+        uintptr_t bg=Ptr(facade+Off::Facade_P2);
+        uintptr_t match=Ptr(bg+Off::Match);
+        uintptr_t local=Ptr(match+Off::Match_Local);
+        if(!local||ReadMem<uint32_t>(local+Off::P_Dead)){JSlp(150,50);continue;}
+
+        // View matrix
+        Mat4 vp{};
+        uintptr_t cam=Ptr(local+Off::P_Camera);
+        uintptr_t cfo=Ptr(cam+Off::Cam_Follow);
+        uintptr_t cip=Ptr(cfo+Off::Cam_Int);
+        if(cip){
+            struct iovec lv={&vp,sizeof(vp)},rv={(void*)(cip+Off::Cam_Matrix),sizeof(vp)};
+            sc6(SYS_pvm_r,g_pid,(long)&lv,1,(long)&rv,1,0);
+        }
+
+        // Local info
+        uintptr_t lh3=Ptr(Ptr(Ptr(local+Off::P_HP1)+Off::P_HP2)+Off::P_HP3);
+        float local_hp=lh3?ReadMem<float>(lh3+Off::P_HPVal):0.f;
+        float local_armor=ReadMem<float>(local+Off::P_Armor);
+        Vec3 local_head=BonePos(Ptr(local+Off::B_Head));
+
+        // Safe zone
+        SafeZoneInfo szinfo{};
+        uintptr_t sz=Ptr(match+Off::Match_SafeZone);
+        if(sz){
+            szinfo.cx    =ReadMem<float>(sz+Off::SZ_CenterX);
+            szinfo.cz    =ReadMem<float>(sz+Off::SZ_CenterZ);
+            szinfo.radius=ReadMem<float>(sz+Off::SZ_Radius);
+            szinfo.timer =ReadMem<float>(sz+Off::SZ_Timer);
+        }
+
+        // Team HP
+        std::vector<TeamEntry> team_list;
+        if(g_feat[F_TEAMHP]){
+            uintptr_t tm=Ptr(match+Off::TeamManager);
+            uintptr_t tl=tm?Ptr(tm+Off::TeamList):0;
+            int32_t tc=tm?ReadMem<int32_t>(tm+Off::TeamCount):0;
+            for(int i=0;i<tc&&tc<5;i++){
+                uintptr_t tp2=Ptr(tl+0x10+(uintptr_t)i*0x8);
+                if(!tp2||tp2==local)continue;
+                uintptr_t th3=Ptr(Ptr(Ptr(tp2+Off::P_HP1)+Off::P_HP2)+Off::P_HP3);
+                TeamEntry te{};
+                te.hp=th3?ReadMem<float>(th3+Off::P_HPVal):0.f;
+                te.armor=ReadMem<float>(tp2+Off::P_Armor);
+                strncpy(te.name,ReadName(Ptr(tp2+Off::P_Name)).c_str(),19);
+                team_list.push_back(te);
+            }
+        }
+
+        // Enemy dict
+        uintptr_t dict=Ptr(match+Off::Match_Dict);
+        uintptr_t ents=dict?Ptr(dict+Off::Dict_Ents):0;
+        int32_t cnt=dict?ReadMem<int32_t>(dict+Off::Dict_Cnt):0;
+
+        std::vector<EspEntry> esp_list;
+        Vec3 lock_tgt{};
+        float lock_dist=1e9f;
+        bool lock_found=false;
+        uintptr_t aim_info=Ptr(local+Off::P_AimInfo);
+        Vec3 aim_spawn=aim_info?ReadMem<Vec3>(aim_info+Off::Aim_Pos):Vec3{};
+
+        for(int i=0;i<cnt&&cnt<200;i++){
+            uintptr_t ep=Ptr(ents+0x10+(uintptr_t)i*Off::Dict_Str+Off::Dict_Val);
+            if(!ep||ep==local)continue;
+            if(ReadMem<uint32_t>(ep+Off::P_Dead))continue;
+            uintptr_t h3=Ptr(Ptr(Ptr(ep+Off::P_HP1)+Off::P_HP2)+Off::P_HP3);
+            float hp=h3?ReadMem<float>(h3+Off::P_HPVal):0.f;
+            float armor=ReadMem<float>(ep+Off::P_Armor);
+            if(hp<=0.f)continue;
+            if(g_feat[F_GHOSTWALL])GhostWall(ep);
+            Vec3 wh=BonePos(Ptr(ep+Off::B_Head));
+            Vec3 wbr=BonePos(Ptr(ep+Off::B_Breast));
+            Vec3 whi=BonePos(Ptr(ep+Off::B_Hip));
+            Vec3 wls=BonePos(Ptr(ep+Off::B_LSho));
+            Vec3 wrs=BonePos(Ptr(ep+Off::B_RSho));
+            Vec3 wlh=BonePos(Ptr(ep+Off::B_LHand));
+            Vec3 wrh=BonePos(Ptr(ep+Off::B_RHand));
+            Vec3 wla=BonePos(Ptr(ep+Off::B_LAnk));
+            Vec3 wra=BonePos(Ptr(ep+Off::B_RAnk));
+            float dist=(wh-local_head).len();
+            auto proj=[&](Vec3 w,BP& bp)->bool{
+                Vec2 s{}; bool ok=W2S(vp,w,s,SW,SH);
+                bp.sx=s.x;bp.sy=s.y;return ok;
+            };
+            EspEntry e{};
+            bool vis=true;
+            vis&=proj(wh,e.head);   vis&=proj(wbr,e.breast);
+            vis&=proj(whi,e.hip);   vis&=proj(wls,e.l_sho);
+            vis&=proj(wrs,e.r_sho); vis&=proj(wlh,e.l_hand);
+            vis&=proj(wrh,e.r_hand);vis&=proj(wla,e.l_ank);
+            vis&=proj(wra,e.r_ank);
+            if(!vis)continue;
+            float bh=e.r_ank.sy-e.head.sy;
+            e.box_top=e.head.sy-bh*0.1f;
+            e.box_bot=e.r_ank.sy+bh*0.05f;
+            e.box_cx=e.head.sx;
+            e.box_w=(e.box_bot-e.box_top)*0.42f;
+            e.hp=hp;e.armor=armor;e.dist=dist;
+            e.is_bot=(uint8_t)ReadMem<uint32_t>(ep+Off:ribution<int> d(0,v);
     std::this_thread::sleep_for(std::chrono::milliseconds(b+d(rng)));
 }
 
