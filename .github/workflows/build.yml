@@ -39,9 +39,6 @@ jobs:
         run: |
           SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           echo "sdk.dir=$SDK" > local.properties
-          echo "Using SDK: $SDK"
-          ls "$SDK/platforms" || true
-          ls "$SDK/build-tools" || true
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
@@ -49,20 +46,7 @@ jobs:
           gradle-version: '8.5'
 
       - name: Build APK
-        id: apk
-        continue-on-error: true
-        run: gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
-
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: build.log
-
-      - name: Fail if APK failed
-        if: steps.apk.outcome == 'failure'
-        run: exit 1
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
 
       - name: Upload daemon
         uses: actions/upload-artifact@v4
