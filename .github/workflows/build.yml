@@ -35,16 +35,20 @@ jobs:
           "$NDK_BIN/clang++" --target=aarch64-linux-android33 -std=c++17 -O2 -fPIE -pie -static-libstdc++ \
               daemon/main.cpp -o ffd
 
+      - name: Write local.properties
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          echo "sdk.dir=$ANDROID_SDK_ROOT" >> local.properties
+          cat local.properties
+          ls -la $ANDROID_HOME || ls -la /usr/local/lib/android/sdk || true
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.5'
 
       - name: Build APK
-        run: |
-          gradle :app:assembleDebug --no-daemon --stacktrace
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
 
       - name: Upload daemon
         uses: actions/upload-artifact@v4
