@@ -31,5 +31,5 @@ android {
 }
 
 dependencies {
-    // no androidx needed for pure framework overlay
+    implementation 'androidx.appcompat:appcompat:1.6.1'
 }
