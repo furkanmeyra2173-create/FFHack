@@ -349,7 +349,7 @@ void JSlp(int b, int v) {
 }
 
 // ════════════════════════════════════════════
-//  FEATURES
+//  FEATURES — her biri kendi kapsamında
 // ════════════════════════════════════════════
 void NoRecoil(uintptr_t lo) {
     uintptr_t wp = Ptr(lo + Off::P_Weapon);
@@ -617,190 +617,186 @@ int main(int argc, char** argv) {
             if (ReadMem<uint32_t>(ep + Off::P_Dead)) continue;
 
             uintptr_t h3   = Ptr(Ptr(Ptr(ep + Off::P_HP1) + Off::P_HP2) + Off::P_HP3);
-            float hp = h3 ? ReadMem<float>(h3 + Off::P_HPVal) : 0.f;
+            float     hp   = h3 ? ReadMem<float>(h3 + Off::P_HPVal) : 0.f;
+            float     armor= ReadMem<float>(ep + Off::P_Armor);
             if (hp <= 0.f) continue;
 
-            float armor = ReadMem<float>(ep + Off::P_Armor);
-            uint8_t is_bot = ReadMem<uint8_t>(ep + Off::P_Bot) ? 1 : 0;
-
-            // Bones
-            Vec3 head   = BonePos(Ptr(ep + Off::B_Head));
-            Vec3 breast = BonePos(Ptr(ep + Off::B_Breast));
-            Vec3 hip    = BonePos(Ptr(ep + Off::B_Hip));
-            Vec3 lsho   = BonePos(Ptr(ep + Off::B_LSho));
-            Vec3 rsho   = BonePos(Ptr(ep + Off::B_RSho));
-            Vec3 lhand  = BonePos(Ptr(ep + Off::B_LHand));
-            Vec3 rhand  = BonePos(Ptr(ep + Off::B_RHand));
-            Vec3 lank   = BonePos(Ptr(ep + Off::B_LAnk));
-            Vec3 rank   = BonePos(Ptr(ep + Off::B_RAnk));
-
-            if (head.x == 0.f && head.y == 0.f && head.z == 0.f) continue;
-
-            float dist = (head - local_head).len();
-            if (dist < 1.f || dist > 500.f) continue;
-
-            // Ghost / wall
             if (g_feat[F_GHOSTWALL]) GhostWall(ep);
 
-            // Aim target select (closest to crosshair / FOV)
-            Vec2 hs{};
-            if (W2S(vp, head, hs, SW, SH)) {
-                float cx = SW * 0.5f, cy = SH * 0.5f;
-                float d2 = (hs.x - cx)*(hs.x - cx) + (hs.y - cy)*(hs.y - cy);
-                if (d2 < lock_dist && d2 < 250.f*250.f) {
-                    lock_dist  = d2;
-                    lock_tgt   = head;
-                    lock_found = true;
-                }
-            }
+            Vec3 wh  = BonePos(Ptr(ep + Off::B_Head));
+            Vec3 wbr = BonePos(Ptr(ep + Off::B_Breast));
+            Vec3 whi = BonePos(Ptr(ep + Off::B_Hip));
+            Vec3 wls = BonePos(Ptr(ep + Off::B_LSho));
+            Vec3 wrs = BonePos(Ptr(ep + Off::B_RSho));
+            Vec3 wlh = BonePos(Ptr(ep + Off::B_LHand));
+            Vec3 wrh = BonePos(Ptr(ep + Off::B_RHand));
+            Vec3 wla = BonePos(Ptr(ep + Off::B_LAnk));
+            Vec3 wra = BonePos(Ptr(ep + Off::B_RAnk));
 
-            // Silent aim (write aim direction)
-            if (g_feat[F_SILENTAIM] && aim_info) {
-                Vec3 dir = (head - aim_spawn).norm();
-                WriteMem<Vec3>(aim_info + Off::Aim_Dir, dir);
-            }
+            float dist = (wh - local_head).len();
 
-            if (!g_feat[F_ESP]) continue;
+            auto proj = [&](Vec3 w, BP& bp) -> bool {
+                Vec2 s{};
+                bool ok = W2S(vp, w, s, SW, SH);
+                bp.sx = s.x;
+                bp.sy = s.y;
+                return ok;
+            };
 
             EspEntry e{};
-            auto proj = [&](Vec3 w, BP& out) {
-                Vec2 s{};
-                if (W2S(vp, w, s, SW, SH)) { out.sx = s.x; out.sy = s.y; }
-            };
-            proj(head,   e.head);
-            proj(breast, e.breast);
-            proj(hip,    e.hip);
-            proj(lsho,   e.l_sho);
-            proj(rsho,   e.r_sho);
-            proj(lhand,  e.l_hand);
-            proj(rhand,  e.r_hand);
-            proj(lank,   e.l_ank);
-            proj(rank,   e.r_ank);
+            bool vis = true;
+            vis &= proj(wh,  e.head);
+            vis &= proj(wbr, e.breast);
+            vis &= proj(whi, e.hip);
+            vis &= proj(wls, e.l_sho);
+            vis &= proj(wrs, e.r_sho);
+            vis &= proj(wlh, e.l_hand);
+            vis &= proj(wrh, e.r_hand);
+            vis &= proj(wla, e.l_ank);
+            vis &= proj(wra, e.r_ank);
+            if (!vis) continue;
 
-            // Box from head/feet
-            float miny = e.head.sy, maxy = e.l_ank.sy;
-            if (e.r_ank.sy > maxy) maxy = e.r_ank.sy;
-            if (miny <= 0.f || maxy <= miny) continue;
-            float h = maxy - miny;
-            e.box_top = miny - h * 0.15f;
-            e.box_bot = maxy + h * 0.05f;
+            float bh  = e.r_ank.sy - e.head.sy;
+            e.box_top = e.head.sy   - bh * 0.1f;
+            e.box_bot = e.r_ank.sy  + bh * 0.05f;
             e.box_cx  = e.head.sx;
-            e.box_w   = h * 0.45f;
+            e.box_w   = (e.box_bot - e.box_top) * 0.42f;
             e.hp      = hp;
             e.armor   = armor;
             e.dist    = dist;
-            e.is_bot  = is_bot;
+            e.is_bot  = (uint8_t)ReadMem<uint32_t>(ep + Off::P_Bot);
             strncpy(e.name, ReadName(Ptr(ep + Off::P_Name)).c_str(), 23);
             esp_list.push_back(e);
+
+            if (dist < lock_dist) {
+                lock_dist  = dist;
+                lock_tgt   = wh;
+                lock_found = true;
+            }
         }
 
-        // Aimbot / CamLock
-        if (lock_found) {
-            if (g_feat[F_AIMBOT])   Aimbot(local, local_head, lock_tgt);
-            if (g_feat[F_CAMLOCK])  CamLock(local, local_head, lock_tgt);
-        }
-
-        // Local features
-        if (g_feat[F_NORECOIL])     NoRecoil(local);
-        if (g_feat[F_RAPIDFIRE])    RapidFire(local);
-        if (g_feat[F_NOSWAY])       NoSway(local);
-        if (g_feat[F_BULLETSPD])    BulletSpeed(local);
-        if (g_feat[F_NOSPREAD])     NoSpread(local);
-        if (g_feat[F_INFINITEAMMO]) InfiniteAmmo(local);
-        if (g_feat[F_NOZOOM])       NoZoom(local);
-        if (g_feat[F_FASTRELOAD])   FastReload(local);
-        if (g_feat[F_MAXHP])        MaxHP(local);
-        if (g_feat[F_MAXARMOR])     MaxArmor(local);
-        if (g_feat[F_AUTOHEAL])     AutoHeal(local);
-        if (g_feat[F_NOKNOCKBACK])  NoKnockback(local);
-        if (g_feat[F_NOFALLDAM])    NoFallDmg(local);
-        if (g_feat[F_SPEED1])       SpeedHack(local, 1.5f);
-        if (g_feat[F_SPEED2])       SpeedHack(local, 2.0f);
-        if (g_feat[F_SPEED3])       SpeedHack(local, 3.0f);
-        if (g_feat[F_FLYHACK])      FlyHack(local);
-        if (g_feat[F_PARASPEED])    ParaSpeed(local);
-        if (g_feat[F_ANTIAIM])      AntiAIM(local);
-        if (g_feat[F_WIDEFOV])      WideFOV(local);
-        if (g_feat[F_NOGRASS])      NoGrass(facade);
-        if (g_feat[F_BRIGHTMODE])   BrightMode(facade);
-        if (g_feat[F_NIGHTMODE])    NightMode(facade);
-
-        // Items
+        // Item ESP
         std::vector<ItemEntry> item_list;
         if (g_feat[F_ITEMESP] || g_feat[F_LOOTFILTER]) {
             uintptr_t im = Ptr(match + Off::ItemManager);
             uintptr_t il = im ? Ptr(im + Off::ItemList) : 0;
             int32_t   ic = im ? ReadMem<int32_t>(im + Off::ItemCount) : 0;
-            for (int i = 0; i < ic && i < 200; i++) {
-                uintptr_t it = Ptr(il + 0x10 + (uintptr_t)i * 0x8);
-                if (!it) continue;
-                Vec3 pos = ReadMem<Vec3>(it + Off::ItemPos);
-                float d  = (pos - local_head).len();
-                if (d < 1.f || d > 150.f) continue;
+            for (int i = 0; i < ic && ic < 500; i++) {
+                uintptr_t item = Ptr(il + 0x10 + (uintptr_t)i * 0x8);
+                if (!item) continue;
+                Vec3  wpos = ReadMem<Vec3>(item + Off::ItemPos);
+                float dist = (wpos - local_head).len();
+                if (dist > 150.f) continue;
                 Vec2 s{};
-                if (!W2S(vp, pos, s, SW, SH)) continue;
+                if (!W2S(vp, wpos, s, SW, SH)) continue;
+                uint8_t type = (uint8_t)ReadMem<uint32_t>(item + Off::ItemType);
+                if (g_feat[F_LOOTFILTER] && type != 0 && type != 2) continue;
                 ItemEntry ie{};
-                ie.sx = s.x; ie.sy = s.y; ie.dist = d;
-                ie.type = (uint8_t)ReadMem<int32_t>(it + Off::ItemType);
+                ie.sx   = s.x;
+                ie.sy   = s.y;
+                ie.dist = dist;
+                ie.type = type;
                 item_list.push_back(ie);
             }
         }
 
-        // Vehicles
+        // Vehicle
         std::vector<VehEntry> veh_list;
         if (g_feat[F_VEHICLESP] || g_feat[F_VEHSPEED]) {
             uintptr_t vm = Ptr(match + Off::VehicleManager);
             uintptr_t vl = vm ? Ptr(vm + Off::VehicleList) : 0;
             int32_t   vc = vm ? ReadMem<int32_t>(vm + Off::VehicleCount) : 0;
-            for (int i = 0; i < vc && i < 20; i++) {
-                uintptr_t ve = Ptr(vl + 0x10 + (uintptr_t)i * 0x8);
-                if (!ve) continue;
-                if (g_feat[F_VEHSPEED])
-                    WriteMem<float>(ve + Off::VehicleSpeed, 80.f);
-                if (!g_feat[F_VEHICLESP]) continue;
-                Vec3 pos = ReadMem<Vec3>(ve + Off::VehiclePos);
-                float d  = (pos - local_head).len();
-                if (d < 1.f || d > 300.f) continue;
-                Vec2 s{};
-                if (!W2S(vp, pos, s, SW, SH)) continue;
-                VehEntry vee{};
-                vee.sx = s.x; vee.sy = s.y; vee.dist = d;
-                vee.hp = ReadMem<float>(ve + Off::VehicleHP);
-                veh_list.push_back(vee);
+            for (int i = 0; i < vc && vc < 50; i++) {
+                uintptr_t veh = Ptr(vl + 0x10 + (uintptr_t)i * 0x8);
+                if (!veh) continue;
+                if (g_feat[F_VEHSPEED]) {
+                    float spd = ReadMem<float>(veh + Off::VehicleSpeed);
+                    if (spd > 0.f && spd < 100.f)
+                        WriteMem<float>(veh + Off::VehicleSpeed, spd * 2.f);
+                }
+                if (g_feat[F_VEHICLESP]) {
+                    Vec3  wpos = ReadMem<Vec3>(veh + Off::VehiclePos);
+                    float dist = (wpos - local_head).len();
+                    if (dist > 300.f) continue;
+                    Vec2 s{};
+                    if (!W2S(vp, wpos, s, SW, SH)) continue;
+                    VehEntry ve{};
+                    ve.sx   = s.x;
+                    ve.sy   = s.y;
+                    ve.dist = dist;
+                    ve.hp   = ReadMem<float>(veh + Off::VehicleHP);
+                    veh_list.push_back(ve);
+                }
             }
         }
 
-        // ── ESP binary dump ──
-        // header: en, in, vn, tn, localHp, localArmor, sz(cx,cz,r,timer)
-        FILE* ef = fopen(ESP_PATH, "wb");
-        if (ef) {
-            int32_t en = (int32_t)esp_list.size();
-            int32_t in = (int32_t)item_list.size();
-            int32_t vn = (int32_t)veh_list.size();
-            int32_t tn = (int32_t)team_list.size();
-            fwrite(&en, 4, 1, ef);
-            fwrite(&in, 4, 1, ef);
-            fwrite(&vn, 4, 1, ef);
-            fwrite(&tn, 4, 1, ef);
-            fwrite(&local_hp, 4, 1, ef);
-            fwrite(&local_armor, 4, 1, ef);
-            fwrite(&szinfo.cx, 4, 1, ef);
-            fwrite(&szinfo.cz, 4, 1, ef);
-            fwrite(&szinfo.radius, 4, 1, ef);
-            fwrite(&szinfo.timer, 4, 1, ef);
+        // ── FEATURE APPLY ──
+        if (g_feat[F_NORECOIL])    NoRecoil(local);
+        if (g_feat[F_RAPIDFIRE])   RapidFire(local);
+        if (g_feat[F_NOSWAY])      NoSway(local);
+        if (g_feat[F_BULLETSPD])   BulletSpeed(local);
+        if (g_feat[F_NOSPREAD])    NoSpread(local);
+        if (g_feat[F_INFINITEAMMO])InfiniteAmmo(local);
+        if (g_feat[F_NOZOOM])      NoZoom(local);
+        if (g_feat[F_FASTRELOAD])  FastReload(local);
+        if (g_feat[F_MAXHP])       MaxHP(local);
+        if (g_feat[F_MAXARMOR])    MaxArmor(local);
+        if (g_feat[F_AUTOHEAL])    AutoHeal(local);
+        if (g_feat[F_NOKNOCKBACK]) NoKnockback(local);
+        if (g_feat[F_NOFALLDAM])   NoFallDmg(local);
+        if (g_feat[F_SPEED1])      SpeedHack(local, 1.5f);
+        if (g_feat[F_SPEED2])      SpeedHack(local, 2.0f);
+        if (g_feat[F_SPEED3])      SpeedHack(local, 3.0f);
+        if (g_feat[F_FLYHACK])     FlyHack(local);
+        if (g_feat[F_PARASPEED])   ParaSpeed(local);
+        if (g_feat[F_ANTIAIM])     AntiAIM(local);
+        if (g_feat[F_WIDEFOV])     WideFOV(local);
+        if (g_feat[F_NOGRASS])     NoGrass(facade);
+        if (g_feat[F_BRIGHTMODE])  BrightMode(facade);
+        if (g_feat[F_NIGHTMODE])   NightMode(facade);
 
-            for (auto& e : esp_list) fwrite(&e, sizeof(EspEntry), 1, ef);
-            for (auto& it : item_list) fwrite(&it, sizeof(ItemEntry), 1, ef);
-            for (auto& v : veh_list) fwrite(&v, sizeof(VehEntry), 1, ef);
-            for (auto& t : team_list) {
-                fwrite(&t.hp, 4, 1, ef);
-                fwrite(&t.armor, 4, 1, ef);
-                fwrite(t.name, 20, 1, ef);
+        if (lock_found) {
+            if (g_feat[F_AIMBOT])
+                Aimbot(local, local_head, lock_tgt);
+            else if (g_feat[F_CAMLOCK])
+                CamLock(local, local_head, lock_tgt);
+
+            if (g_feat[F_SILENTAIM] &&
+                ReadMem<uint32_t>(local + Off::P_Firing) &&
+                aim_info) {
+                Vec3 dir = (lock_tgt - aim_spawn).norm();
+                std::uniform_int_distribution<int> sk(1, 3);
+                static int sc = 0;
+                if (++sc % sk(rng) == 0)
+                    WriteMem<Vec3>(aim_info + Off::Aim_Dir, dir);
             }
-            fclose(ef);
         }
 
-        JSlp(8, 6); // ~60-120 fps tick
-    }
-    return 0;
-}
+        // ── ESP WRITE ──
+        {
+            FILE* ef = fopen(ESP_PATH, "wb");
+            if (ef) {
+                int32_t en = (int32_t)esp_list.size();
+                int32_t in = (int32_t)item_list.size();
+                int32_t vn = (int32_t)veh_list.size();
+                int32_t tn = (int32_t)team_list.size();
+                fwrite(&en,           4, 1, ef);
+                fwrite(&in,           4, 1, ef);
+                fwrite(&vn,           4, 1, ef);
+                fwrite(&tn,           4, 1, ef);
+                fwrite(&local_hp,     4, 1, ef);
+                fwrite(&local_armor,  4, 1, ef);
+                fwrite(&szinfo,  sizeof(SafeZoneInfo), 1,  ef);
+                fwrite(esp_list.data(),  sizeof(EspEntry),  en, ef);
+                fwrite(item_list.data(), sizeof(ItemEntry),  in, ef);
+                fwrite(veh_list.data(),  sizeof(VehEntry),   vn, ef);
+                fwrite(team_list.data(), sizeof(TeamEntry),  tn, ef);
+                fclose(ef);
+            }
+        }
+
+        JSlp(8, 4);
+
+    } // while(true)
+
+} // main
